@@ -1,0 +1,21 @@
+# Environment variables
+.env
+
+# Claude Code
+.claude/
+
+# Virtual environment
+bookly-env/
+
+# Database
+bookly.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+
+# Markdown files (except design doc)
+**/*.md
+!docs/agent_design.md

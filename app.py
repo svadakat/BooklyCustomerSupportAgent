@@ -1,6 +1,6 @@
 """
 app.py — Bookly AI Customer Support Agent
-Run with: streamlit run app.py
+Run with: OS streamlit run app.py
 """
 
 import html

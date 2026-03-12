@@ -4,6 +4,63 @@
 
 ---
 
+## Running the Agent
+
+### Prerequisites
+- Python 3.12+
+- An [Anthropic API key](https://console.anthropic.com/)
+
+### Steps
+
+**1. Clone the repository**
+```bash
+git clone https://github.com/svadakat/BooklyCustomerSupportAgent.git
+cd BooklyCustomerSupportAgent
+```
+
+**2. Create and activate a virtual environment**
+```bash
+python -m venv .venv
+source .venv/bin/activate        # macOS / Linux
+.venv\Scripts\activate           # Windows
+```
+
+**3. Install dependencies**
+```bash
+pip install -r requirements.txt
+```
+> First run downloads the `all-MiniLM-L6-v2` sentence-transformer model (~90 MB). Subsequent runs use the cached version.
+
+**4. Configure environment variables**
+```bash
+cp .env.example .env
+```
+Open `.env` and set at minimum:
+```
+ANTHROPIC_API_KEY=sk-ant-...
+```
+Email settings are optional — if omitted, confirmation emails are silently skipped. Set `EMAIL_OVERRIDE` to redirect all outgoing mail to a single test address.
+
+**5. Run the app**
+```bash
+streamlit run app.py
+```
+The app opens automatically at `http://localhost:8501`.
+
+### Test credentials (example order)
+
+Use these to test the full order status → refund flow:
+
+| Field | Value |
+|---|---|
+| Confirmation # | `CF-K7P6X` |
+| Full name | `Priya Sharma` |
+| Zip code | `95101` |
+
+The order is for *Sapiens* (Delivered, $19.99) with no existing return — eligible for a refund request.
+
+---
+
 ## Executive Summary
 
 **Bookly Support Agent** is a multi-turn AI customer support agent built on Claude Haiku, served through a Streamlit web UI. The agent — named Amelia — handles three task categories exclusively: order status lookups, return/refund initiation, and policy questions. All other topics are politely declined.

@@ -4,7 +4,7 @@
 
 ---
 
-## Executive Summary *(one page)*
+## Executive Summary **
 
 **Bookly Support Agent** is a multi-turn AI customer support agent built on Claude Haiku, served through a Streamlit web UI. The agent — named Amelia — handles three task categories exclusively: order status lookups, return/refund initiation, and policy questions. All other topics are politely declined.
 

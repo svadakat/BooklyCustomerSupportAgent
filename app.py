@@ -19,7 +19,7 @@ from streamlit_autorefresh import st_autorefresh
 
 import db  # ensures DB is initialised on startup
 from kb import search as kb_search
-from tools import get_order_status, initiate_refund, cancel_order, reset_password
+from tools import get_order_status, initiate_refund, cancel_order
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -31,30 +31,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
-
-# ---------------------------------------------------------------------------
-# Featured books
-# ---------------------------------------------------------------------------
-
-FEATURED_BOOKS = [
-    {"title": "The Covenant of Water",              "author": "Abraham Verghese",                  "genre": "Fiction",    "isbn": "9780802162175", "bg": "#fff1f2", "accent": "#e11d48"},
-    {"title": "Man's Search for Meaning",           "author": "Viktor Frankl",                     "genre": "Psychology", "isbn": "9780807014271", "bg": "#f0fdf4", "accent": "#16a34a"},
-    {"title": "Thinking, Fast and Slow",            "author": "Daniel Kahneman",                   "genre": "Psychology", "isbn": "9780374533557", "bg": "#f0fdf4", "accent": "#15803d"},
-    {"title": "The Beginning of Infinity",          "author": "David Deutsch",                     "genre": "Science",    "isbn": "9780143121350", "bg": "#eff6ff", "accent": "#2563eb"},
-    {"title": "Meditations",                        "author": "Marcus Aurelius",                   "genre": "Philosophy", "isbn": "9780140449334", "bg": "#fefce8", "accent": "#ca8a04"},
-    {"title": "Zero to One",                        "author": "Peter Thiel & Blake Masters",       "genre": "Business",   "isbn": "9780804139021", "bg": "#f8fafc", "accent": "#0f172a"},
-    {"title": "Blitzscaling",                       "author": "Reid Hoffman & Chris Yeh",          "genre": "Business",   "isbn": "9781524761417", "bg": "#f8fafc", "accent": "#1e293b"},
-    {"title": "The Innovator's Dilemma",            "author": "Clayton M. Christensen",            "genre": "Business",   "isbn": "9781633691780", "bg": "#f8fafc", "accent": "#334155"},
-    {"title": "The Lean Startup",                   "author": "Eric Ries",                         "genre": "Business",   "isbn": "9780307887894", "bg": "#f8fafc", "accent": "#475569"},
-    {"title": "The Score Takes Care of Itself",     "author": "Bill Walsh",                        "genre": "Leadership", "isbn": "9781591843412", "bg": "#fdf4ff", "accent": "#9333ea"},
-    {"title": "Superintelligence",                  "author": "Nick Bostrom",                      "genre": "AI / Tech",  "isbn": "9780198739838", "bg": "#f5f3ff", "accent": "#7c3aed"},
-    {"title": "Einstein: His Life and Universe",    "author": "Walter Isaacson",                   "genre": "Biography",  "isbn": "9780743264747", "bg": "#fdf2f8", "accent": "#db2777"},
-    {"title": "Brave New World",                    "author": "Aldous Huxley",                     "genre": "Fiction",    "isbn": "9780060850524", "bg": "#fff7ed", "accent": "#ea580c"},
-    {"title": "Secrets of Sand Hill Road",          "author": "Scott Kupor",                       "genre": "Business",   "isbn": "9781982106348", "bg": "#f0f9ff", "accent": "#0284c7"},
-    {"title": "The Master Algorithm",               "author": "Pedro Domingos",                    "genre": "AI / Tech",  "isbn": "9780465065707", "bg": "#f5f3ff", "accent": "#6d28d9"},
-    {"title": "Sapiens",                            "author": "Yuval Noah Harari",                 "genre": "History",    "isbn": "9780062316097", "bg": "#fff7ed", "accent": "#c2410c"},
-    {"title": "The Second Machine Age",             "author": "Erik Brynjolfsson & Andrew McAfee", "genre": "Technology", "isbn": "9780393350647", "bg": "#f0fdfa", "accent": "#0f766e"},
-]
 
 # ---------------------------------------------------------------------------
 # CSS
@@ -95,11 +71,69 @@ st.markdown("""
 
 /* ── Card: logo bar ──────────────────────────────────────────────────────── */
 .card-logo {
-    padding: 16px 20px 14px;
+    padding: 14px 20px 12px;
     border-bottom: 1px solid #f0ece4;
     display: flex;
     align-items: center;
     gap: 10px;
+}
+/* Logo bar: nested columns row */
+[data-testid="stColumn"]:first-child [data-testid="stHorizontalBlock"]:first-of-type {
+    background: #ffffff;
+    border-bottom: 1px solid #f0ece4;
+    gap: 0 !important;
+    align-items: center;
+}
+[data-testid="stColumn"]:first-child [data-testid="stHorizontalBlock"]:first-of-type
+    > [data-testid="stColumn"] > div:first-child {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+[data-testid="stColumn"]:first-child [data-testid="stHorizontalBlock"]:first-of-type
+    > [data-testid="stColumn"] {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+[data-testid="stColumn"]:first-child [data-testid="stHorizontalBlock"]:first-of-type
+    > [data-testid="stColumn"]:last-child {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 16px !important;
+}
+[data-testid="stColumn"]:first-child [data-testid="stHorizontalBlock"]:first-of-type
+    [data-testid="stToggle"] label {
+    font-size: 0.72rem;
+    color: #78716c;
+}
+
+/* ── Inline turn layout (bubble + activity side by side in chat) ─────────── */
+.turn-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin: 4px 0;
+}
+.turn-bubble { flex: 1; min-width: 0; }
+.turn-activity {
+    width: 220px;
+    flex-shrink: 0;
+    background: #f8f7f5;
+    border: 1px solid #e2dbd2;
+    border-radius: 10px;
+    padding: 8px 10px;
+    max-height: 160px;
+    overflow-y: auto;
+}
+.turn-activity-title {
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #a8a29e;
+    margin-bottom: 5px;
 }
 .card-logo-text {
     font-family: 'Fraunces', Georgia, serif;
@@ -109,75 +143,11 @@ st.markdown("""
     letter-spacing: -0.02em;
 }
 .card-logo-text span { color: #7c3aed; }
-.card-logo-dot {
-    width: 8px; height: 8px;
-    background: #4ade80;
-    border-radius: 50%;
-    margin-left: auto;
-}
 .card-logo-status {
     font-size: 0.72rem;
     color: #78716c;
     margin-right: 4px;
 }
-
-/* ── Card: featured books ────────────────────────────────────────────────── */
-.card-books {
-    padding: 8px 16px 8px;
-    border-bottom: 1px solid #f0ece4;
-    background: #faf8f4;
-}
-.books-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
-}
-.books-badge {
-    font-size: 0.57rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: #7c3aed;
-    background: #f5f3ff;
-    border: 1px solid #ddd6fe;
-    padding: 2px 7px;
-    border-radius: 3px;
-}
-.books-label {
-    font-size: 0.76rem;
-    font-weight: 500;
-    color: #78716c;
-}
-.books-scroll {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-}
-.books-scroll::-webkit-scrollbar { display: none; }
-.book-card {
-    flex-shrink: 0;
-    width: 90px;
-    border-radius: 7px;
-    border-left: 2px solid;
-    border-top: 1px solid rgba(0,0,0,0.06);
-    border-right: 1px solid rgba(0,0,0,0.06);
-    border-bottom: 1px solid rgba(0,0,0,0.06);
-    overflow: hidden;
-    background: #fff;
-    transition: transform 0.15s, box-shadow 0.15s;
-    cursor: default;
-}
-.book-card:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.10); }
-.book-cover { width: 100%; height: 90px; overflow: hidden; }
-.book-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.book-meta { padding: 6px 7px 7px; }
-.book-genre { font-size: 0.54rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 3px; }
-.book-title { font-size: 0.68rem; font-weight: 600; color: #1c1917; line-height: 1.25;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* ── Card: chat area ─────────────────────────────────────────────────────── */
 .chat-bg {
@@ -292,21 +262,61 @@ st.markdown("""
     color: #a8a29e;
     margin-bottom: 12px;
 }
-.activity-item {
-    font-size: 0.77rem;
-    line-height: 1.5;
-    padding: 6px 9px;
-    border-radius: 6px;
-    margin-bottom: 5px;
-    border-left: 3px solid;
-    color: #1c1917;
-}
-.ai-intent { background: #f5f3ff; border-left-color: #7c3aed; }
-.ai-tool   { background: #eff6ff; border-left-color: #2563eb; }
-.ai-search { background: #f0fdf4; border-left-color: #16a34a; }
-.ai-ok     { background: #f8fafc; border-left-color: #64748b; }
-.ai-error  { background: #fff1f2; border-left-color: #e11d48; }
 .activity-empty { color: #d4cdc6; font-size: 0.77rem; font-style: italic; text-align: center; padding-top: 24px; }
+
+/* ── Activity timeline ───────────────────────────────────────────────────── */
+.tl-turn-header {
+    font-size: 0.60rem;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: #a8a29e;
+    margin: 10px 0 6px 0;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #f0ece4;
+}
+.tl-turn-header:first-child { margin-top: 2px; }
+.tl-track {
+    position: relative;
+    padding-left: 18px;
+    margin: 0;
+}
+.tl-track::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 6px;
+    bottom: 4px;
+    width: 2px;
+    background: linear-gradient(to bottom, #e2dbd2, #f5f3f0);
+    border-radius: 1px;
+}
+.tl-item {
+    position: relative;
+    margin-bottom: 9px;
+    display: flex;
+    align-items: flex-start;
+}
+.tl-dot {
+    position: absolute;
+    left: -15px;
+    top: 4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    flex-shrink: 0;
+    z-index: 1;
+}
+.tl-intent .tl-dot { background: #7c3aed; box-shadow: 0 0 0 2px #ddd6fe; }
+.tl-tool   .tl-dot { background: #2563eb; box-shadow: 0 0 0 2px #bfdbfe; }
+.tl-search .tl-dot { background: #16a34a; box-shadow: 0 0 0 2px #bbf7d0; }
+.tl-ok     .tl-dot { background: #64748b; box-shadow: 0 0 0 2px #e2e8f0; }
+.tl-error  .tl-dot { background: #e11d48; box-shadow: 0 0 0 2px #fecdd3; }
+.tl-content { font-size: 0.74rem; line-height: 1.5; color: #1c1917; }
+.tl-label   { font-weight: 600; }
+.tl-detail  { font-size: 0.67rem; color: #64748b; font-family: monospace; word-break: break-word; }
+.tl-ts      { font-size: 0.60rem; font-weight: 400; color: #a8a29e; font-family: monospace; margin-left: 6px; }
 
 /* Hide Streamlit's container border on the scrollable chat box */
 [data-testid="stVerticalBlockBorderWrapper"] {
@@ -350,6 +360,7 @@ st.markdown("""
 
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-thumb { background: #d4cdc6; border-radius: 2px; }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -360,34 +371,46 @@ st.markdown("""
 TOOLS: list[dict] = [
     {
         "name": "get_order_status",
-        "description": "Get shipping status and tracking for a customer order by order ID.",
-        "input_schema": {"type": "object", "properties": {"order_id": {"type": "string"}}, "required": ["order_id"]},
+        "description": "Get shipping status and tracking for a customer order. Requires confirmation number, full name, and zip code.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "confirmation_number": {"type": "string", "description": "Confirmation number from the order confirmation email, e.g. CF-A7K2M"},
+                "full_name":           {"type": "string", "description": "Customer's full name as on the account"},
+                "zip_code":            {"type": "string", "description": "Customer's billing/shipping zip code"},
+            },
+            "required": ["confirmation_number", "full_name", "zip_code"],
+        },
     },
     {
         "name": "initiate_refund",
-        "description": "Initiate a return and refund for an order. Only call this AFTER the customer has explicitly confirmed they want to proceed (e.g. replied 'yes', 'please go ahead', 'confirm'). Never call speculatively.",
-        "input_schema": {"type": "object", "properties": {"order_id": {"type": "string"}}, "required": ["order_id"]},
+        "description": "Initiate a return and refund for an order. Only call this AFTER the customer has explicitly confirmed they want to proceed. Requires confirmation number, full name, and zip code.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "confirmation_number": {"type": "string", "description": "Confirmation number from the order confirmation email, e.g. CF-A7K2M"},
+                "full_name":           {"type": "string", "description": "Customer's full name as on the account"},
+                "zip_code":            {"type": "string", "description": "Customer's billing/shipping zip code"},
+            },
+            "required": ["confirmation_number", "full_name", "zip_code"],
+        },
     },
     {
         "name": "cancel_order",
         "description": (
-            "Cancel a Processing order. Requires the order ID and the customer's full name "
-            "exactly as on the order to verify identity. Cannot cancel orders that have already shipped — "
-            "suggest a return instead. Only call after the customer has confirmed they want to cancel."
+            "Cancel a Processing order. Requires confirmation number, full name, and zip code to verify identity. "
+            "Cannot cancel orders that have already shipped — suggest a return instead. "
+            "Only call after the customer has confirmed they want to cancel."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "order_id":      {"type": "string"},
-                "customer_name": {"type": "string", "description": "Full name as on the order"},
+                "confirmation_number": {"type": "string", "description": "Confirmation number from the order confirmation email, e.g. CF-A7K2M"},
+                "full_name":           {"type": "string", "description": "Customer's full name as on the account"},
+                "zip_code":            {"type": "string", "description": "Customer's billing/shipping zip code"},
             },
-            "required": ["order_id", "customer_name"],
+            "required": ["confirmation_number", "full_name", "zip_code"],
         },
-    },
-    {
-        "name": "reset_password",
-        "description": "Send a password reset email. Require the customer's email first.",
-        "input_schema": {"type": "object", "properties": {"email": {"type": "string"}}, "required": ["email"]},
     },
     {
         "name": "search_knowledge_base",
@@ -401,19 +424,21 @@ SYSTEM_PROMPT = """You are Amelia, a friendly AI concierge for Bookly, an online
 Scope — you handle ONLY these three categories:
   1. Order status inquiries (checking status, tracking, cancellations)
   2. Return and refund requests
-  3. General questions about Bookly policies (shipping, returns, payments, BookClub, eBooks, account/password)
+  3. General questions about Bookly policies (shipping, returns, payments, BookClub, eBooks)
 
 If a customer asks about ANYTHING else — booking flights, recommendations, unrelated topics, general chat — firmly but warmly decline: "I'm here specifically to help with order status, returns, and Bookly policies. For anything else, please visit bookly.com or contact our team directly." Do NOT attempt to answer out-of-scope questions even partially.
 
 Rules:
-1. Only call tools when the customer explicitly asks for that action — never proactively look up orders or trigger operations.
+1. Never call a tool unless the customer has explicitly requested that action in the current conversation. Do not look up orders, trigger refunds, or cancel orders unprompted. However, once the customer has stated their intent AND supplied all three required credentials, call the tool immediately — do not ask for a second confirmation.
 2. Never fabricate order details — always call get_order_status when a customer asks about an order.
-3. Require order ID before calling get_order_status or initiate_refund; require email before reset_password.
+3. Credential gates — required before calling each tool:
+   • get_order_status / initiate_refund / cancel_order: confirmation number (format CF-XXXXX), full name, and zip code — all three must be collected before calling; no credentials needed for general policy questions.
+   Collect any missing credentials one at a time, then call the tool immediately once all are provided.
 4. Use search_knowledge_base for all policy questions; base answers solely on retrieved content.
 5. For refunds: first explain what will happen (amount, timeline), then WAIT for the customer to explicitly confirm in a separate reply before calling initiate_refund. Never call initiate_refund on a first request.
-6. For cancellations: require the order ID and customer's full name. Explain that only Processing orders can be cancelled, then confirm before calling cancel_order. If the order has shipped, suggest a return instead.
+6. For cancellations: collect all three credentials (confirmation number, full name, zip code). Explain that only Processing orders can be cancelled, then confirm before calling cancel_order. If the order has shipped, suggest a return instead.
 7. After successfully completing a request, ask: "Is there anything else I can help you with today?"
-8. If the customer says they are done (e.g. "no", "that's all", "goodbye", "thanks"), reply with a warm farewell tied to their last interaction — e.g. after an order status check: "Hope your [book title] arrives right on time! Enjoy the read! 📦"; after a refund: "Hope the refund goes smoothly — we look forward to seeing you again at Bookly! 📚"; after a cancellation: "No worries at all! Hope to see you back at Bookly soon!"; after a password reset: "Stay secure and happy reading! 📖" — then end your message with exactly this token on its own line: [END_SESSION]
+8. If the customer says they are done (e.g. "no", "that's all", "goodbye", "thanks"), reply with a warm farewell tied to their last interaction — e.g. after an order status check: "Hope your [book title] arrives right on time! Enjoy the read! 📦"; after a refund: "Hope the refund goes smoothly — we look forward to seeing you again at Bookly! 📚"; after a cancellation: "No worries at all! Hope to see you back at Bookly soon!" — then end your message with exactly this token on its own line: [END_SESSION]
 
 Style: warm, concise, plain language. Resolve in as few turns as possible."""
 
@@ -425,7 +450,6 @@ _INTENT_LABELS = {
     "get_order_status": "order_status",
     "initiate_refund": "refund_request",
     "cancel_order": "order_cancellation",
-    "reset_password": "password_reset",
     "search_knowledge_base": "policy_query",
 }
 
@@ -434,11 +458,27 @@ def _execute_tool(name: str, inp: dict) -> dict:
     if name == "get_order_status":     return get_order_status(**inp)
     if name == "initiate_refund":      return initiate_refund(**inp)
     if name == "cancel_order":         return cancel_order(**inp)
-    if name == "reset_password":       return reset_password(**inp)
     if name == "search_knowledge_base":
         docs = kb_search(inp["query"])
         return {"documents": [d["text"] for d in docs], "sources": [d["id"] for d in docs]}
     return {"error": f"Unknown tool: {name}"}
+
+
+def _tool_result_detail(tool_name: str, result: dict) -> str:
+    if tool_name == "get_order_status":
+        parts = [f"status: {result.get('status', '—')}"]
+        if result.get("carrier"):
+            parts.append(f"carrier: {result['carrier']}")
+        if result.get("tracking_number"):
+            parts.append(f"tracking: {result['tracking_number']}")
+        if result.get("delivery_estimate"):
+            parts.append(f"est. delivery: {result['delivery_estimate']}")
+        return " · ".join(parts)
+    if tool_name == "initiate_refund":
+        return f"refund initiated · return_id: {result.get('return_id', '—')}"
+    if tool_name == "cancel_order":
+        return f"order cancelled · {result.get('message', '')}"
+    return "success"
 
 
 def run_agent(api_messages: list, activity_log: list) -> tuple[str, list]:
@@ -449,26 +489,34 @@ def run_agent(api_messages: list, activity_log: list) -> tuple[str, list]:
 
     client = anthropic.Anthropic(api_key=api_key)
     resp = client.messages.create(
-        model="claude-sonnet-4-6", max_tokens=1024,
+        model="claude-haiku-4-5-20251001", max_tokens=1024,
         system=SYSTEM_PROMPT, tools=TOOLS, messages=api_messages,
     )
+
+    def _ts() -> str:
+        return time.strftime("%H:%M:%S")
 
     while resp.stop_reason == "tool_use":
         results = []
         for block in resp.content:
             if block.type != "tool_use":
                 continue
-            activity_log.append(("intent", _INTENT_LABELS.get(block.name, "general_inquiry")))
-            activity_log.append(("tool", block.name, block.input))
+            activity_log.append(("intent", _INTENT_LABELS.get(block.name, "general_inquiry"), {}, _ts()))
+            activity_log.append(("tool", block.name, block.input, _ts()))
             try:
                 result = _execute_tool(block.name, block.input)
                 if block.name == "search_knowledge_base":
                     for src in result.get("sources", []):
-                        activity_log.append(("retrieval", src))
-                activity_log.append(("result", "success"))
+                        activity_log.append(("retrieval", src, {}, _ts()))
+                    activity_log.append(("result", "kb docs retrieved", {}, _ts()))
+                elif result.get("found") is False or result.get("success") is False:
+                    activity_log.append(("error", result.get("message", "Tool returned an error"), {}, _ts()))
+                else:
+                    detail = _tool_result_detail(block.name, result)
+                    activity_log.append(("result", detail, {}, _ts()))
             except Exception as exc:
                 result = {"error": str(exc)}
-                activity_log.append(("error", str(exc)))
+                activity_log.append(("error", str(exc), {}, _ts()))
             results.append({"type": "tool_result", "tool_use_id": block.id, "content": json.dumps(result)})
 
         api_messages = api_messages + [
@@ -476,7 +524,7 @@ def run_agent(api_messages: list, activity_log: list) -> tuple[str, list]:
             {"role": "user", "content": results},
         ]
         resp = client.messages.create(
-            model="claude-sonnet-4-6", max_tokens=1024,
+            model="claude-haiku-4-5-20251001", max_tokens=1024,
             system=SYSTEM_PROMPT, tools=TOOLS, messages=api_messages,
         )
 
@@ -484,8 +532,8 @@ def run_agent(api_messages: list, activity_log: list) -> tuple[str, list]:
     if not text:
         text = "I'm sorry, I wasn't able to generate a response. Please try again."
     if not any(i[0] == "intent" for i in activity_log):
-        activity_log.append(("intent", "general_inquiry"))
-    activity_log.append(("result", "response generated"))
+        activity_log.append(("intent", "general_inquiry", {}, _ts()))
+    activity_log.append(("result", "response generated", {}, _ts()))
     return text, api_messages + [{"role": "assistant", "content": resp.content}]
 
 
@@ -518,7 +566,7 @@ def _md(text: str) -> str:
     return ''.join(out)
 
 
-def _render_bubble(role: str, content: str):
+def _render_bubble(role: str, content: str, activity: list | None = None):
     if role == "user":
         st.markdown(
             f'<div class="bubble-row-user">'
@@ -537,48 +585,62 @@ def _render_bubble(role: str, content: str):
 
 
 def _render_activity(activity: list[tuple]) -> str:
-    rows, seen = [], set()
+    """Render one turn's activity log as a vertical timeline with timestamps."""
+    items, seen = [], set()
     for item in activity:
         k = item[0]
+        ts = item[-1] if isinstance(item[-1], str) and len(item[-1]) == 8 and item[-1].count(":") == 2 else ""
+        ts_html = f'<span class="tl-ts">{ts}</span>' if ts else ""
+
         if k == "intent":
-            if item[1] in seen: continue
+            if item[1] in seen:
+                continue
             seen.add(item[1])
-            rows.append(f'<div class="activity-item ai-intent">&#127919; Intent: <strong>{item[1]}</strong></div>')
+            items.append(
+                '<div class="tl-item tl-intent">'
+                '<div class="tl-dot"></div>'
+                '<div class="tl-content">'
+                f'<div class="tl-label">&#127919;&nbsp;{html.escape(item[1])}{ts_html}</div>'
+                '</div></div>'
+            )
         elif k == "tool":
-            params = ", ".join(f"{k}={v!r}" for k, v in (item[2] if len(item) > 2 else {}).items())
-            rows.append(f'<div class="activity-item ai-tool">&#128295; <strong>{item[1]}</strong><br><code style="font-size:0.69rem;color:#64748b">{params}</code></div>')
+            params = ", ".join(f"{p}={v!r}" for p, v in (item[2] if isinstance(item[2], dict) else {}).items())
+            detail = f'<div class="tl-detail">{html.escape(params)}</div>' if params else ""
+            items.append(
+                '<div class="tl-item tl-tool">'
+                '<div class="tl-dot"></div>'
+                '<div class="tl-content">'
+                f'<div class="tl-label">&#128295;&nbsp;{html.escape(item[1])}{ts_html}</div>'
+                f'{detail}'
+                '</div></div>'
+            )
         elif k == "retrieval":
-            rows.append(f'<div class="activity-item ai-search">&#128269; vector_search &rarr; <strong>{item[1]}</strong></div>')
+            items.append(
+                '<div class="tl-item tl-search">'
+                '<div class="tl-dot"></div>'
+                '<div class="tl-content">'
+                f'<div class="tl-label">&#128269;&nbsp;{html.escape(item[1])}{ts_html}</div>'
+                '</div></div>'
+            )
         elif k == "result":
-            rows.append(f'<div class="activity-item ai-ok">&#10003; {item[1]}</div>')
+            items.append(
+                '<div class="tl-item tl-ok">'
+                '<div class="tl-dot"></div>'
+                '<div class="tl-content">'
+                f'<div class="tl-label">&#10003;&nbsp;{html.escape(item[1])}{ts_html}</div>'
+                '</div></div>'
+            )
         elif k == "error":
-            rows.append(f'<div class="activity-item ai-error">&#10007; {item[1]}</div>')
-    return "\n".join(rows)
-
-
-def _books_html() -> str:
-    cards = []
-    for b in FEATURED_BOOKS:
-        cover = f"https://covers.openlibrary.org/b/isbn/{b['isbn']}-M.jpg"
-        cards.append(
-            f'<div class="book-card" style="border-left-color:{b["accent"]}">'
-            f'<div class="book-cover" style="background:{b["bg"]}">'
-            f'<img src="{cover}" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
-            f'</div>'
-            f'<div class="book-meta">'
-            f'<div class="book-genre" style="color:{b["accent"]}">{b["genre"]}</div>'
-            f'<div class="book-title">{b["title"]}</div>'
-            f'</div></div>'
-        )
-    return (
-        '<div class="card-books">'
-        '<div class="books-header">'
-        '<span class="books-badge">Staff Picks</span>'
-        '<span class="books-label">Featured this week</span>'
-        '</div>'
-        '<div class="books-scroll">' + "".join(cards) + '</div>'
-        '</div>'
-    )
+            items.append(
+                '<div class="tl-item tl-error">'
+                '<div class="tl-dot"></div>'
+                '<div class="tl-content">'
+                f'<div class="tl-label">&#10007;&nbsp;{html.escape(item[1])}{ts_html}</div>'
+                '</div></div>'
+            )
+    if not items:
+        return ""
+    return '<div class="tl-track">' + "\n".join(items) + "</div>"
 
 
 # ---------------------------------------------------------------------------
@@ -595,18 +657,18 @@ _QUICK_REPLIES = [
     ("Track my order",       "I'd like to check the status of my order."),
     ("Return a book",        "I want to return a book and get a refund."),
     ("Cancel my order",      "I need to cancel an order I just placed."),
-    ("Reset my password",    "I forgot my password and need to reset it."),
     ("Return policy",        "What is your return and refund policy?"),
 ]
 
 if "messages"       not in st.session_state:
     st.session_state.messages       = [{"role": "assistant", "content": _AMELIA_GREETING}]
 if "api_messages"   not in st.session_state: st.session_state.api_messages   = []
-if "activity"       not in st.session_state: st.session_state.activity       = []
 if "quick_prompt"   not in st.session_state: st.session_state.quick_prompt   = None
 if "last_agent_ts"  not in st.session_state: st.session_state.last_agent_ts  = time.time()
 if "idle_nudge_sent" not in st.session_state: st.session_state.idle_nudge_sent = False
 if "session_ended"  not in st.session_state: st.session_state.session_ended  = False
+if "show_activity"  not in st.session_state: st.session_state.show_activity  = True
+if "pending_agent"  not in st.session_state: st.session_state.pending_agent  = False
 
 # Auto-refresh every 20 s so the idle check fires without user interaction
 st_autorefresh(interval=20_000, key="idle_refresh")
@@ -615,40 +677,45 @@ st_autorefresh(interval=20_000, key="idle_refresh")
 # Layout
 # ---------------------------------------------------------------------------
 
-col_main, col_activity = st.columns([5, 2], gap="medium")
+if st.session_state.show_activity:
+    col_main, col_activity = st.columns([5, 2], gap="medium")
+else:
+    col_main = st.columns(1)[0]
+    col_activity = None
 
 # ── Main white card ───────────────────────────────────────────────────────
 
 with col_main:
 
-    # 1. Logo bar
-    st.markdown("""
-    <div class="card-logo">
-      <div class="card-logo-text">book<span>ly</span></div>
-      <span class="card-logo-status">Amelia is online</span>
-      <div class="card-logo-dot"></div>
-    </div>
-    """, unsafe_allow_html=True)
+    # 1. Logo bar with activity toggle
+    _logo_col, _toggle_col = st.columns([5, 1])
+    with _logo_col:
+        st.markdown("""
+        <div class="card-logo">
+          <div class="card-logo-text">book<span>ly</span></div>
+          <span class="card-logo-status">Amelia is online</span>
+        </div>
+        """, unsafe_allow_html=True)
+    with _toggle_col:
+        st.toggle("Activity", key="show_activity")
 
-    # 2. Featured books strip
-    st.markdown(_books_html(), unsafe_allow_html=True)
-
-    # 3. Scrollable iMessage-style conversation
+    # 2. Scrollable iMessage-style conversation
     st.markdown('<div class="chat-bg">', unsafe_allow_html=True)
 
-    chat_box = st.container(height=320, border=False)
+    chat_box = st.container(height=450, border=False)
     with chat_box:
-        for msg in st.session_state.messages:
-            _render_bubble(msg["role"], msg["content"])
-
-        # Auto-scroll to bottom after new messages
+        # Scroll to top so the most recent message (rendered first) is visible
         if st.session_state.messages:
             st.markdown(
-                '<div id="chat-bottom"></div>'
-                '<script>document.getElementById("chat-bottom")'
+                '<div id="chat-top"></div>'
+                '<script>document.getElementById("chat-top")'
                 '.scrollIntoView({behavior:"smooth"});</script>',
                 unsafe_allow_html=True,
             )
+
+        for msg in reversed(st.session_state.messages):
+            _render_bubble(msg["role"], msg["content"], msg.get("activity"))
+
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -662,7 +729,7 @@ with col_main:
             unsafe_allow_html=True,
         )
         if st.button("Start a new conversation", key="new_session", use_container_width=True):
-            for key in ["messages", "api_messages", "activity", "last_agent_ts",
+            for key in ["messages", "api_messages", "last_agent_ts",
                         "idle_nudge_sent", "session_ended", "quick_prompt"]:
                 st.session_state.pop(key, None)
             st.rerun()
@@ -673,27 +740,39 @@ with col_main:
         for col, (label, full_prompt) in zip(qr_cols, _QUICK_REPLIES):
             if col.button(label, key=f"qr_{label}", use_container_width=True):
                 st.session_state.quick_prompt = full_prompt
-                st.rerun()
 
         # 5. Chat input (Enter to send)
         prompt = st.chat_input("Message Amelia…")
 
-# ── Activity panel ────────────────────────────────────────────────────────
+# ── Activity panel (own white card, right column) ─────────────────────────
 
-with col_activity:
-    st.markdown(
-        '<div class="activity-panel">'
-        '<div class="activity-panel-title">Agent Activity</div>',
-        unsafe_allow_html=True,
-    )
-    if st.session_state.activity:
-        st.markdown(_render_activity(st.session_state.activity), unsafe_allow_html=True)
-    else:
+if col_activity is not None:
+    with col_activity:
         st.markdown(
-            '<div class="activity-empty">Waiting for activity&hellip;</div>',
+            '<div class="activity-panel">'
+            '<div class="activity-panel-title">Agent Activity</div>',
             unsafe_allow_html=True,
         )
-    st.markdown("</div>", unsafe_allow_html=True)
+        turns = [msg for msg in st.session_state.messages if msg.get("activity")]
+        if turns:
+            act_box = st.container(height=450, border=False)
+            with act_box:
+                total = len(turns)
+                for i, msg in enumerate(reversed(turns)):
+                    turn_num = total - i
+                    st.markdown(
+                        f'<div class="tl-turn-header">Turn {turn_num}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    rendered = _render_activity(msg["activity"])
+                    if rendered:
+                        st.markdown(rendered, unsafe_allow_html=True)
+        else:
+            st.markdown(
+                '<div class="activity-empty">Waiting for activity&hellip;</div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Idle nudge — fires on each auto-refresh if waiting > 60 s
@@ -721,12 +800,17 @@ _END_TOKEN = "[END_SESSION]"
 
 active_prompt = prompt or st.session_state.pop("quick_prompt", None)
 
+# Phase 1 — show user message immediately, then rerun to trigger the agent
 if active_prompt and not st.session_state.session_ended:
     st.session_state.messages.append({"role": "user", "content": active_prompt})
     st.session_state.api_messages.append({"role": "user", "content": active_prompt})
-    # User replied — reset idle tracking
     st.session_state.idle_nudge_sent = False
+    st.session_state.pending_agent = True
+    st.rerun()
 
+# Phase 2 — user message is already visible; now run the agent
+if st.session_state.pending_agent and not st.session_state.session_ended:
+    st.session_state.pending_agent = False
     with st.spinner(""):
         activity_log: list[tuple] = []
         response_text, new_api_messages = run_agent(
@@ -738,8 +822,7 @@ if active_prompt and not st.session_state.session_ended:
         response_text = response_text.replace(_END_TOKEN, "").strip()
         st.session_state.session_ended = True
 
-    st.session_state.messages.append({"role": "assistant", "content": response_text})
+    st.session_state.messages.append({"role": "assistant", "content": response_text, "activity": activity_log})
     st.session_state.api_messages = new_api_messages
-    st.session_state.activity = activity_log
     st.session_state.last_agent_ts = time.time()
     st.rerun()

@@ -4,27 +4,41 @@
 
 ---
 
-## 1. Architecture Overview
+## Executive Summary *(one page)*
 
-The system is composed of five layers that work together in a single-page Streamlit application.
+**Bookly Support Agent** is a multi-turn AI customer support agent built on Claude Haiku, served through a Streamlit web UI. The agent — named Amelia — handles three task categories exclusively: order status lookups, return/refund initiation, and policy questions. All other topics are politely declined.
+
+**How it works end-to-end.** The customer types a message (or clicks a quick-reply chip). The Streamlit app appends it to the API message history and calls Claude Haiku with a structured system prompt, the full conversation, and four tool schemas. Claude reasons over the history, decides whether to answer directly, ask for missing credentials, or call a tool — and returns either a `tool_use` response or a final text answer. The agentic loop runs until `stop_reason != "tool_use"`. Every step is timestamped and recorded in a visual activity timeline visible alongside the chat.
+
+**Credential gate.** Every order-touching action (status check, refund, cancellation) requires the customer to supply their **confirmation number** (format `CF-XXXXX`), **full name**, and **zip code** before any tool is called. These are verified against the database inside the tool function — not just checked by the prompt — so the gate is enforced at the code layer, not just the LLM layer. The confirmation number is used as the primary order lookup key; order IDs are internal only.
+
+**Hallucination controls.** The system prompt forbids Claude from answering factual questions from memory. Order details must come from `get_order_status`; policy answers must come from `search_knowledge_base` (a ChromaDB vector KB with 7 Bookly policy documents). Destructive actions (refunds, cancellations) require an explicit second confirmation from the customer before the tool is called.
+
+**Key tradeoffs made for speed.** SQLite replaces a production DB; in-memory ChromaDB replaces a persistent vector store; credential verification replaces real authentication; Streamlit replaces a proper frontend. The design deliberately isolates these concerns (tools.py, db.py, kb.py) so each can be swapped independently.
+
+**What would change for production.** Real authentication (OAuth/JWT) scoped per customer; persistent vector store with policy versioning; streaming LLM responses; structured observability (traces, latency metrics); circuit breakers around external calls; human escalation when the agent fails to resolve after two clarification turns.
+
+---
+
+## 1. Architecture Overview
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                    Streamlit UI (app.py)                      │
 │                                                               │
 │  ┌─────────────────────────┐   ┌───────────────────────────┐ │
-│  │     Chat Interface       │   │   Agent Activity Panel    │ │
-│  │  iMessage-style bubbles  │   │  (intent / tool / KB)     │ │
-│  │  Quick-reply chip buttons│   │                           │ │
-│  │  Idle-timeout nudge      │   │                           │ │
+│  │     Chat Interface       │   │  Agent Activity Timeline  │ │
+│  │  iMessage-style bubbles  │   │  Per-turn intent / tool / │ │
+│  │  Quick-reply chip buttons│   │  result with HH:MM:SS     │ │
+│  │  Idle-timeout nudge      │   │  timestamps               │ │
 │  │  Session-end + reset     │   │                           │ │
 │  └──────────┬──────────────┘   └───────────────────────────┘ │
 │             │ user message / quick-reply prompt               │
-└─────────────┼──────────────────────────────────────────────── ┘
+└─────────────┼────────────────────────────────────────────────┘
               │
               ▼
 ┌──────────────────────────────────────────────────────────────┐
-│              LLM Agent  (claude-sonnet-4-6)                   │
+│           LLM Agent  (claude-haiku-4-5-20251001)             │
 │                                                               │
 │  System prompt + full conversation history + tool schemas     │
 │  Agentic loop: call tools until stop_reason ≠ tool_use        │
@@ -38,7 +52,7 @@ The system is composed of five layers that work together in a single-page Stream
 │  get_order_status()     │  │  all-MiniLM-L6-v2 embeddings     │
 │  initiate_refund()      │  │  7 policy documents              │
 │  cancel_order()         │  │  cosine similarity search        │
-│  reset_password()       │  │  EphemeralClient (ChromaDB 1.5+) │
+│  search_knowledge_base  │  │  EphemeralClient (in-memory)     │
 └────────┬────────────────┘  └──────────────────────────────────┘
          │
          ▼
@@ -48,7 +62,7 @@ The system is composed of five layers that work together in a single-page Stream
 │  SQLite (bookly.db)          smtplib SMTP                    │
 │  ├── customers (15 rows)     send_email() with EMAIL_OVERRIDE │
 │  ├── orders    (30 rows)     Confirmation emails on refund,   │
-│  ├── returns   (7 rows)      cancellation, password reset     │
+│  ├── returns   (7 rows)      cancellation                    │
 │  └── customer_interactions   Timestamped interaction logging  │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -57,12 +71,12 @@ The system is composed of five layers that work together in a single-page Stream
 
 | Component | File | Responsibility |
 |-----------|------|----------------|
-| Streamlit UI | `app.py` | Renders chat + activity panel, quick-reply chips, session lifecycle, idle nudge |
-| Agent loop | `app.py` | Calls Claude API, handles tool-use loop, strips `[END_SESSION]` token |
-| Tool layer | `tools.py` | Order status, refund initiation, order cancellation, password reset |
+| Streamlit UI | `app.py` | Chat interface, activity timeline, session lifecycle, idle nudge, quick-reply chips |
+| Agent loop | `app.py` | Calls Claude API, handles tool-use loop, timestamps each step, strips `[END_SESSION]` |
+| Tool layer | `tools.py` | Credential-gated order status, refund initiation, order cancellation |
 | Knowledge base | `kb.py` | ChromaDB EphemeralClient with sentence-transformer embeddings, 7 policy docs |
-| Database | `db.py` | SQLite CRUD: orders, returns, customers, interaction history |
-| Email | `email_utils.py` | SMTP email delivery with optional `EMAIL_OVERRIDE` for test redirection |
+| Database | `db.py` | SQLite CRUD: orders, returns, customers, interaction history; lookup by confirmation number |
+| Email | `email_utils.py` | SMTP delivery with `EMAIL_OVERRIDE` for test redirection |
 
 ---
 
@@ -70,72 +84,88 @@ The system is composed of five layers that work together in a single-page Stream
 
 ### 2.1  Claude as the reasoning core
 
-Rather than hard-coding an intent classifier, the system delegates all reasoning to `claude-sonnet-4-6`. Claude reads the conversation history, decides which tool(s) to call (if any), and generates the final response. This approach:
+Rather than hard-coding an intent classifier, the system delegates all reasoning to Claude Haiku. Claude reads the conversation history, decides which tool(s) to call (if any), and generates the final response. This approach:
 
 - handles novel phrasings gracefully without re-training a classifier
-- naturally multi-hops (e.g., checks order status *then* initiates refund in one turn if the customer asks for both)
-- makes the intent/action visible through tool-use metadata captured in the activity log
+- naturally multi-hops (e.g., checks order status *then* explains return eligibility in one turn)
+- makes intent and actions visible through the activity timeline in the UI
 
-### 2.2  search_knowledge_base as a first-class tool
+### 2.2  Credential gate before every order action
 
-Policy retrieval is exposed as a Claude tool (`search_knowledge_base`) rather than being triggered by keyword matching. Claude decides *when* to consult the knowledge base based on context. The system prompt instructs Claude to always call this tool for policy questions instead of relying on its parametric knowledge, ensuring answers are grounded in Bookly's actual policies.
+Every tool that touches an order (`get_order_status`, `initiate_refund`, `cancel_order`) requires three credentials before it is called:
 
-The KB covers 7 policy domains: shipping, returns/refunds, account security, BookClub membership, eBooks/digital, order cancellation, and payment/billing.
+| Credential | Format | Verified against |
+|---|---|---|
+| Confirmation number | `CF-XXXXX` | `orders.confirmation_number` |
+| Full name | Free text | `customers.name` (case-insensitive) |
+| Zip code | 5-digit string | `customers.zip_code` |
 
-### 2.3  Multi-turn context via API message list
+Verification happens inside the tool function (not just in the prompt) using `get_order_by_confirmation()` as the primary lookup. Using the confirmation number — not the order ID — as the lookup key means customers only need to reference the document they already received; they never need to know internal order IDs.
 
-Conversation history is stored in `st.session_state.api_messages` as the raw Claude API message list (including tool-use and tool-result blocks). Every new turn appends to this list and passes the full history to Claude, giving the agent persistent memory within a session.
+Credentials are collected one at a time by the agent until all three are provided, then the tool is called immediately. This avoids redundant back-and-forth once the customer has already supplied information.
 
-### 2.4  Clarification before action
+### 2.3  search_knowledge_base as a first-class tool
 
-The system prompt instructs Claude to ask for missing parameters (order ID, email, full name) before calling a tool. This is enforced by language-model behaviour — Claude naturally asks "Could you share your order ID?" when the customer says "Where is my order?" without providing one.
+Policy retrieval is exposed as a Claude tool rather than triggered by keyword matching. Claude decides *when* to consult the knowledge base based on context. The system prompt mandates calling this tool for all policy questions, ensuring answers are grounded in Bookly's actual policy documents rather than model memory.
+
+The KB covers 7 policy domains: shipping, returns/refunds, BookClub membership, eBooks/digital, order cancellation, payment/billing, and account security.
+
+### 2.4  Multi-turn context via API message list
+
+Conversation history is stored in `st.session_state.api_messages` as the raw Claude API message list (including `tool_use` and `tool_result` blocks). The full history is passed on every API call, giving Claude persistent within-session memory without an external state store.
 
 ### 2.5  Confirmation before destructive actions
 
-The system prompt requires Claude to confirm both refund and cancellation requests with the customer before calling `initiate_refund` or `cancel_order`. This adds a conversational safety gate in front of irreversible operations.
+The system prompt requires Claude to explain the outcome (amount, timeline) and wait for explicit customer confirmation before calling `initiate_refund` or `cancel_order`. This is a conversational safety gate — it ensures the customer has seen the consequences before the irreversible action is taken.
 
 ### 2.6  Strict scope restriction
 
-The agent is explicitly scoped to three categories only:
+The agent handles only three categories. Any out-of-scope request is declined with a redirect to bookly.com. This prevents scope creep, reduces hallucination surface area, and makes the agent's capabilities predictable.
 
-1. **Order status inquiries** — checking status, tracking, carrier info
-2. **Return and refund requests** — initiating returns, checking existing return status
-3. **Bookly policy questions** — shipping, returns, payments, BookClub, eBooks, account/password
+### 2.7  Two-phase UI rerun pattern
 
-Any out-of-scope request (e.g., flight booking, general recommendations, unrelated chat) is firmly declined with a redirect to bookly.com. This prevents scope creep and keeps the agent focused and trustworthy.
+When a customer clicks a quick-reply chip, Streamlit's button-click triggers an implicit rerun. To avoid a race condition:
+- **Phase 1**: append the user message to session state, set `pending_agent = True`, call `st.rerun()` — the user message appears immediately.
+- **Phase 2**: on the next rerun, `pending_agent` is consumed, the agent runs, and the response is appended.
 
-### 2.7  Order cancellation with identity verification
-
-Cancellations require both the order ID and the customer's full name (as it appears on the order) before `cancel_order` is called. The DB layer performs a case-insensitive name match and enforces that only `Processing` orders can be cancelled — shipped orders receive a redirect to the return flow. This mirrors real-world identity verification without requiring authentication infrastructure.
+This ensures the user always sees their message before the agent responds, even on chip clicks.
 
 ### 2.8  Session lifecycle via [END_SESSION] token
 
-When a customer signals they are done, Claude appends the literal token `[END_SESSION]` to its farewell message. `app.py` detects this token, strips it before display, and sets `session_ended = True`. The UI then replaces the chat input with a "Start a new conversation" button that clears all session state. This gives Claude full control over session termination while keeping the UI and agent concerns cleanly separated.
-
-Farewells are context-specific — tied to the customer's last interaction (e.g., "Hope your *[book title]* arrives right on time! 📦" after an order status check).
+When a customer signals they are done, Claude appends `[END_SESSION]` to its farewell. `app.py` detects and strips this token, sets `session_ended = True`, and replaces the chat input with a reset button. Farewells are context-specific (e.g., "Hope your *[book title]* arrives right on time! 📦" after an order status check).
 
 ### 2.9  Idle timeout nudge
 
-`streamlit-autorefresh` triggers a Streamlit rerun every 20 seconds. On each rerun, if the last message is from Amelia and more than 60 seconds have elapsed without customer input, a gentle nudge ("Still there? No rush — take your time!") is injected once per idle period. This prevents the customer from feeling abandoned and avoids the agent silently waiting indefinitely. The `idle_nudge_sent` flag ensures the nudge fires only once per idle window.
+`streamlit-autorefresh` triggers a rerun every 20 seconds. If the last message is from Amelia and more than 60 seconds have elapsed, a gentle nudge is injected once per idle window. The `idle_nudge_sent` flag prevents repeated nudges.
 
 ### 2.10  Quick-reply chip buttons
 
-Five pill-shaped buttons above the chat input let customers start common workflows without typing. Each chip maps a short label to a full natural-language prompt that is injected into the conversation as if the customer typed it. This reduces friction and showcases supported capabilities at a glance.
+Four pill-shaped buttons above the input reduce friction for common workflows:
 
 | Label | Injected prompt |
 |-------|----------------|
 | Track my order | I'd like to check the status of my order. |
 | Return a book | I want to return a book and get a refund. |
 | Cancel my order | I need to cancel an order I just placed. |
-| Reset my password | I forgot my password and need to reset it. |
 | Return policy | What is your return and refund policy? |
 
-### 2.11  Transactional email + interaction logging
+### 2.11  Timestamped activity timeline
 
-Every completed support action triggers two side effects:
+Every step the agent takes is logged with a `HH:MM:SS` timestamp and rendered in a side-by-side visual timeline panel:
 
-1. **Confirmation email** via SMTP — refund approved, order cancelled, or password reset link. `EMAIL_OVERRIDE` in `.env` redirects all outgoing mail to a single test address without altering seed data.
-2. **Interaction log entry** — a timestamped row in `customer_interactions` is written to SQLite for every `get_order_status` call, refund, cancellation, and password reset. This creates a durable audit trail visible in the DB.
+- **Intent** (purple dot) — what the agent identified as the customer's goal
+- **Tool call** (blue dot) — tool name + parameters
+- **Result** (slate dot) — concise summary of the tool output (e.g., `status: Shipped · carrier: FedEx`)
+- **Error** (red dot) — credential mismatch or tool failure message
+- **KB retrieval** (green dot) — knowledge base document(s) consulted
+
+Turns are grouped under numbered headers (Turn 1, Turn 2, …) so multi-step interactions are easy to follow. This panel is toggleable and has its own scroll container independent of the chat.
+
+### 2.12  Transactional email + interaction logging
+
+Every completed action triggers two side effects:
+1. **Confirmation email** via SMTP — refund approved or order cancelled. `EMAIL_OVERRIDE` in `.env` redirects all outgoing mail to a test address.
+2. **Interaction log entry** — a timestamped row in `customer_interactions` is written for every status check, refund, and cancellation, forming a durable audit trail.
 
 ---
 
@@ -148,7 +178,7 @@ Scope — you handle ONLY these three categories:
   1. Order status inquiries (checking status, tracking, cancellations)
   2. Return and refund requests
   3. General questions about Bookly policies (shipping, returns, payments,
-     BookClub, eBooks, account/password)
+     BookClub, eBooks)
 
 If a customer asks about ANYTHING else — booking flights, recommendations,
 unrelated topics, general chat — firmly but warmly decline: "I'm here
@@ -157,20 +187,28 @@ anything else, please visit bookly.com or contact our team directly."
 Do NOT attempt to answer out-of-scope questions even partially.
 
 Rules:
-1. Only call tools when the customer explicitly asks for that action — never
-   proactively look up orders or trigger operations.
+1. Never call a tool unless the customer has explicitly requested that action
+   in the current conversation. Do not look up orders, trigger refunds, or
+   cancel orders unprompted. However, once the customer has stated their
+   intent AND supplied all three required credentials, call the tool
+   immediately — do not ask for a second confirmation.
 2. Never fabricate order details — always call get_order_status when a
    customer asks about an order.
-3. Require order ID before calling get_order_status or initiate_refund;
-   require email before reset_password.
+3. Credential gates — required before calling each tool:
+   • get_order_status / initiate_refund / cancel_order: confirmation number
+     (format CF-XXXXX), full name, and zip code — all three must be collected
+     before calling; no credentials needed for general policy questions.
+   Collect any missing credentials one at a time, then call the tool
+   immediately once all are provided.
 4. Use search_knowledge_base for all policy questions; base answers solely
    on retrieved content.
 5. For refunds: first explain what will happen (amount, timeline), then WAIT
    for the customer to explicitly confirm in a separate reply before calling
    initiate_refund. Never call initiate_refund on a first request.
-6. For cancellations: require the order ID and customer's full name. Explain
-   that only Processing orders can be cancelled, then confirm before calling
-   cancel_order. If the order has shipped, suggest a return instead.
+6. For cancellations: collect all three credentials (confirmation number,
+   full name, zip code). Explain that only Processing orders can be
+   cancelled, then confirm before calling cancel_order. If the order has
+   shipped, suggest a return instead.
 7. After successfully completing a request, ask: "Is there anything else I
    can help you with today?"
 8. If the customer says they are done, reply with a warm farewell tied to
@@ -181,9 +219,10 @@ Style: warm, concise, plain language. Resolve in as few turns as possible.
 ```
 
 Key design choices in the prompt:
-- **Numbered safety rules** are more reliably followed than prose instructions.
-- **Explicit scope rules** (#1, scope section) prevent the agent from drifting into general-purpose assistant behaviour.
-- **Two-step confirmation** for destructive actions (#5, #6) adds a safety gate without requiring backend transactions.
+- **Numbered rules** are more reliably followed than prose instructions.
+- **Explicit scope block** prevents the agent from drifting into general-purpose assistant behaviour.
+- **Credential gate rule** (#3) names the exact format (`CF-XXXXX`) so Claude collects well-formed data.
+- **Two-step confirmation** for destructive actions (#5, #6) adds a conversational safety gate without requiring backend transactions.
 - **`[END_SESSION]` token** (#8) delegates session lifecycle control to the LLM while keeping UI logic simple.
 
 ---
@@ -192,44 +231,47 @@ Key design choices in the prompt:
 
 | Risk | Control |
 |------|---------|
-| Fabricated order status | System prompt rule #2 + `get_order_status` always called before answering |
-| Tool called without required params | Prompt rules #3/#6 + Claude's own adherence; tool schemas mark fields `required` |
-| Policy answers from model memory | Prompt rule #4 mandates `search_knowledge_base` for all policy queries |
-| Refund executed without consent | Prompt rule #5: two-step confirmation before `initiate_refund` |
-| Cancellation without identity check | Prompt rule #6: requires full name + order ID; DB verifies name match |
-| Out-of-scope requests answered | Scope block in system prompt + firm decline template |
-| Session stuck open indefinitely | Idle nudge after 60 s; `[END_SESSION]` on completion |
-| SMTP email to wrong recipient | `EMAIL_OVERRIDE` env var redirects all outgoing mail in test environments |
-| Sensitive data leakage | Tools return only necessary fields; no PII stored in session state beyond what the user types |
+| Fabricated order status | Rule #2 + `get_order_status` always called; DB is authoritative |
+| Tool called with unverified identity | Credential gate: confirmation number, full name, zip code verified in tool code, not just prompt |
+| Order looked up by guessable ID | Primary lookup by confirmation number (`CF-XXXXX`), not sequential order ID |
+| Policy answers from model memory | Rule #4 mandates `search_knowledge_base`; answers grounded in retrieved documents |
+| Refund executed without consent | Rule #5: two-step confirmation before `initiate_refund` |
+| Cancellation of someone else's order | Confirmation number + name + zip must all match the same order record |
+| Out-of-scope requests answered | Scope block + firm decline template in system prompt |
+| Session stuck open | Idle nudge after 60 s; `[END_SESSION]` on completion |
+| SMTP email to wrong recipient | `EMAIL_OVERRIDE` env var redirects all outgoing mail in non-production |
+| Sensitive data leakage | Tools return only necessary fields; credentials are not echoed back in responses |
 
-The overall philosophy is **retrieval over recall**: for anything factual or policy-related, the agent must consult an authoritative source (tools or KB) rather than generating from memory.
+The overall philosophy is **retrieval over recall**: for anything factual, the agent must consult an authoritative source (tool or KB) rather than generate from memory.
 
 ---
 
 ## 5. Database Schema
 
 ```
-customers            orders                 returns
-─────────────────    ────────────────────   ──────────────────────
-customer_id (PK)     order_id (PK)          return_id (PK)
-name                 customer_id (FK)       order_id (FK)
-email (UNIQUE)       book_title             customer_id (FK)
-phone                book_author            reason
-member_since         quantity               status
-                     total_amount           return_date
-                     status                 refund_amount
-                     carrier                refund_status
-                     tracking_number
-                     order_date             customer_interactions
-                     delivery_estimate      ──────────────────────
-                                            interaction_id (PK)
-                                            customer_id (FK)
-                                            date
-                                            type
-                                            summary
+customers                 orders                      returns
+──────────────────────    ──────────────────────────  ──────────────────────
+customer_id (PK)          order_id (PK)               return_id (PK)
+name                      customer_id (FK)            order_id (FK)
+email (UNIQUE)            book_title                  customer_id (FK)
+phone                     book_author                 reason
+member_since              quantity                    status
+zip_code                  total_amount                return_date
+                          status                      refund_amount
+                          carrier                     refund_status
+                          tracking_number
+                          order_date                  customer_interactions
+                          delivery_estimate           ──────────────────────
+                          confirmation_number         interaction_id (PK)
+                                                      customer_id (FK)
+                                                      date
+                                                      type
+                                                      summary
 ```
 
-Seed data: 15 customers, 30 orders (statuses spanning Processing → Delivered), 7 returns, 20 interaction history entries. All seed rows use `INSERT OR IGNORE` so the DB can be extended without breaking existing state.
+`confirmation_number` (orders) and `zip_code` (customers) were added via `ALTER TABLE` migrations with backfill, so existing databases survive upgrades without data loss. Orders are looked up by `UPPER(confirmation_number)` via `get_order_by_confirmation()` — the internal `order_id` is never exposed to the customer.
+
+Seed data: 15 customers, 30 orders (statuses spanning Processing → Delivered), 7 returns, 20 interaction history entries. All seed rows use `INSERT OR IGNORE`.
 
 ---
 
@@ -239,47 +281,47 @@ Seed data: 15 customers, 30 orders (statuses spanning Processing → Delivered),
 |----|-------|
 | `shipping_policy` | Shipping methods, costs, timelines, carriers |
 | `return_and_refund_policy` | Return window, eligibility, refund timelines |
-| `account_and_password_security` | Password reset, 2FA, account closure |
+| `account_and_password_security` | Account security, 2FA, account closure |
 | `bookclub_membership_rewards` | Points, tiers (Silver/Gold), expiry |
 | `ebook_and_digital_policy` | DRM, device limits, non-refundable downloads |
 | `order_cancellation_and_changes` | Processing-only cancellations, eligible changes |
 | `payment_and_billing` | Accepted methods, gift cards, split payments |
 
-Retrieval uses `all-MiniLM-L6-v2` sentence embeddings with cosine similarity in ChromaDB (`EphemeralClient` — in-memory, compatible with ChromaDB ≥ 0.5). The top 2 documents are returned per query and passed to Claude as tool result content.
+Retrieval uses `all-MiniLM-L6-v2` sentence embeddings with cosine similarity in ChromaDB (`EphemeralClient` — in-memory). The top 2 documents are returned per query and passed to Claude as tool result content.
 
 ---
 
 ## 7. Production Readiness Improvements
 
 ### Authentication & authorisation
-- Require customers to authenticate (OAuth / session token) before accessing order tools.
-- Scope tool permissions to the authenticated user's orders only — prevent a customer from querying another customer's order by guessing an order ID.
+- Replace credential-gate pattern with real customer authentication (OAuth / JWT session tokens).
+- Scope all tool calls to the authenticated customer's records — eliminate the possibility of querying another customer's orders entirely.
 
 ### Observability and logging
-- Emit structured logs (JSON) for every agent turn: user ID, session ID, intent, tools called, latency, model version.
-- Integrate with an observability platform (Datadog, Grafana) for dashboards on resolution rates, tool call frequency, and error rates.
-- The `customer_interactions` table already provides a lightweight audit trail; in production this would feed an analytics pipeline.
+- Emit structured JSON logs per agent turn: session ID, intent, tools called, latency, model version, credential verification outcome.
+- Integrate with an observability platform (Datadog, Grafana) for dashboards on resolution rate, tool call frequency, credential failure rate, and LLM error rates.
+- The `customer_interactions` table already provides a lightweight audit trail; in production it would feed an analytics pipeline.
 
 ### Guardrails and safety
-- Add a moderation layer (e.g., Anthropic's content filters or a custom classifier) before passing user input to the model.
-- Implement rate limiting per user to prevent abuse.
-- Add input/output validation: reject inputs exceeding a length threshold; strip potential prompt-injection patterns.
+- Add a moderation layer before passing user input to the model (Anthropic's built-in safety filters or a custom classifier).
+- Implement per-session rate limiting to prevent abuse.
+- Add input/output validation: reject inputs exceeding a token threshold; detect and block prompt-injection patterns.
 
 ### Knowledge base improvements
-- Replace in-memory ChromaDB with a persistent deployment (Chroma server, Pinecone, or Weaviate).
-- Implement automatic KB updates when policies change, with versioning and rollback.
-- Add a re-ranker (cross-encoder) after the initial retrieval step for higher precision.
+- Replace in-memory ChromaDB with a persistent, managed vector store (Chroma server, Pinecone, or Weaviate).
+- Automate KB updates when policies change, with versioning and rollback.
+- Add a cross-encoder re-ranker after initial retrieval for higher precision on ambiguous queries.
 
 ### Scalability
-- Deploy the agent behind a stateless API (FastAPI / AWS Lambda) so multiple Streamlit instances can share it.
-- Move session state to a distributed store (Redis) to support horizontal scaling.
-- Use streaming responses (`anthropic.Anthropic().messages.stream()`) for lower perceived latency.
+- Move the agent behind a stateless API (FastAPI / AWS Lambda) so multiple UI instances share a single agent service.
+- Migrate session state to a distributed store (Redis) to support horizontal scaling.
+- Use streaming responses (`messages.stream()`) for lower perceived latency.
 
 ### Reliability
-- Add fallback behaviour when the LLM API is unavailable: queue the request, return an estimated wait time, or escalate to a human agent.
-- Implement circuit breakers around external tool calls (DB, SMTP, Claude API).
-- Set `max_tokens` conservatively and handle `max_tokens` stop reason gracefully.
+- Add fallback behaviour when the Claude API is unavailable: return an estimated wait time or escalate to a human agent.
+- Implement circuit breakers around DB, SMTP, and Claude API calls.
+- Handle `max_tokens` stop reason explicitly (truncation warning to the customer).
 
 ### Human escalation
-- Detect when the agent is stuck (>2 clarification attempts with no resolution) and offer to connect the customer to a human agent.
-- Flag low-confidence responses for human review using a secondary LLM-as-judge check.
+- Detect when the agent is stuck (≥ 2 clarification turns with no resolution) and offer to transfer to a human agent.
+- Flag low-confidence or high-stakes responses for asynchronous human review using an LLM-as-judge check.

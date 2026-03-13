@@ -3,7 +3,7 @@ tools.py — Bookly support tools backed by the SQLite database (db.py).
 """
 
 from db import (
-    get_order_by_confirmation,
+    get_order_by_reference,
     get_return_for_order,
     create_return,
     cancel_order as db_cancel_order,
@@ -16,9 +16,8 @@ def _not_found() -> dict:
     return {
         "found": False,
         "message": (
-            "No order was found for that confirmation number. "
-            "Please double-check — it should look like CF-A7K2M. "
-            "You can find it in your order confirmation email."
+            "No order was found matching that reference. "
+            "Please double-check your order ID (e.g. B1015) or confirmation number (e.g. CF-A7K2M)."
         ),
     }
 
@@ -33,9 +32,9 @@ def _credential_error(field: str) -> dict:
     }
 
 
-def get_order_status(confirmation_number: str, full_name: str, zip_code: str) -> dict:
+def get_order_status(order_reference: str, full_name: str, zip_code: str) -> dict:
     """Return order status, carrier, and tracking from the database."""
-    order = get_order_by_confirmation(confirmation_number)
+    order = get_order_by_reference(order_reference)
     if not order:
         return _not_found()
 
@@ -77,12 +76,12 @@ def get_order_status(confirmation_number: str, full_name: str, zip_code: str) ->
     return result
 
 
-def initiate_refund(confirmation_number: str, full_name: str, zip_code: str) -> dict:
+def initiate_refund(order_reference: str, full_name: str, zip_code: str) -> dict:
     """
     Initiate a return/refund for an order.
     Returns error dict if not found, credentials don't match, or a return already exists.
     """
-    order = get_order_by_confirmation(confirmation_number)
+    order = get_order_by_reference(order_reference)
     if not order:
         return {"success": False, "message": _not_found()["message"]}
 
@@ -93,12 +92,12 @@ def initiate_refund(confirmation_number: str, full_name: str, zip_code: str) -> 
 
     order_id = order["order_id"]
 
-    if order["status"] not in ("Delivered", "Shipped", "Out for Delivery"):
+    if order["status"] != "Delivered":
         return {
             "success": False,
             "message": (
                 f"Order {order_id} has status '{order['status']}' and is not yet eligible for a return. "
-                "Returns can be requested once an order has shipped."
+                "Returns can only be requested after the order has been delivered."
             ),
         }
 
@@ -150,12 +149,12 @@ def initiate_refund(confirmation_number: str, full_name: str, zip_code: str) -> 
     return confirmation
 
 
-def cancel_order(confirmation_number: str, full_name: str, zip_code: str) -> dict:
+def cancel_order(order_reference: str, full_name: str, zip_code: str) -> dict:
     """
-    Cancel a Processing order after verifying confirmation number, full name, and zip code.
+    Cancel a Processing order after verifying order reference, full name, and zip code.
     Logs the interaction and sends a confirmation email.
     """
-    order = get_order_by_confirmation(confirmation_number)
+    order = get_order_by_reference(order_reference)
     if not order:
         return {"success": False, "message": _not_found()["message"]}
 

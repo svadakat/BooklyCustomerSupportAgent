@@ -274,6 +274,16 @@ def get_order_by_confirmation(confirmation_number: str) -> dict | None:
     return dict(row) if row else None
 
 
+def get_order_by_reference(reference: str) -> dict | None:
+    """Look up an order by either order ID (e.g. B1015) or confirmation number (e.g. CF-A7K2M)."""
+    ref = reference.strip().upper()
+    # Confirmation numbers start with CF-
+    if ref.startswith("CF-"):
+        return get_order_by_confirmation(ref)
+    # Otherwise treat as order ID
+    return get_order(ref)
+
+
 def get_return_for_order(order_id: str) -> dict | None:
     """Return the return record for an order, if any."""
     with _conn() as con:

@@ -77,36 +77,32 @@ st.markdown("""
     align-items: center;
     gap: 10px;
 }
-/* Logo bar: nested columns row */
-[data-testid="stColumn"]:first-child [data-testid="stHorizontalBlock"]:first-of-type {
-    background: #ffffff;
-    border-bottom: 1px solid #f0ece4;
-    gap: 0 !important;
-    align-items: center;
-}
-[data-testid="stColumn"]:first-child [data-testid="stHorizontalBlock"]:first-of-type
-    > [data-testid="stColumn"] > div:first-child {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-}
-[data-testid="stColumn"]:first-child [data-testid="stHorizontalBlock"]:first-of-type
-    > [data-testid="stColumn"] {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-}
-[data-testid="stColumn"]:first-child [data-testid="stHorizontalBlock"]:first-of-type
-    > [data-testid="stColumn"]:last-child {
+/* ── Top-right controls row (toggle + End in right column) ──────────────── */
+[data-testid="stColumn"]:last-child [data-testid="stHorizontalBlock"]:first-of-type {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    padding-right: 16px !important;
+    gap: 8px;
+    padding: 6px 4px 10px;
 }
-[data-testid="stColumn"]:first-child [data-testid="stHorizontalBlock"]:first-of-type
+[data-testid="stColumn"]:last-child [data-testid="stHorizontalBlock"]:first-of-type
     [data-testid="stToggle"] label {
     font-size: 0.72rem;
     color: #78716c;
+}
+[data-testid="stColumn"]:last-child [data-testid="stHorizontalBlock"]:first-of-type
+    [data-testid="stToggle"],
+[data-testid="stColumn"]:last-child [data-testid="stHorizontalBlock"]:first-of-type
+    [data-testid="stToggle"] > div,
+[data-testid="stColumn"]:last-child [data-testid="stHorizontalBlock"]:first-of-type
+    [data-testid="element-container"],
+[data-testid="stColumn"]:last-child [data-testid="stHorizontalBlock"]:first-of-type
+    [data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stColumn"]:last-child [data-testid="stHorizontalBlock"]:first-of-type
+    > div > div {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
 }
 
 /* ── Inline turn layout (bubble + activity side by side in chat) ─────────── */
@@ -147,6 +143,30 @@ st.markdown("""
     font-size: 0.72rem;
     color: #78716c;
     margin-right: 4px;
+}
+
+/* ── End Session button ──────────────────────────────────────────────────── */
+[data-testid="stColumn"]:last-child [data-testid="stHorizontalBlock"]:first-of-type
+    [data-testid="stButton"] > button {
+    background: transparent !important;
+    color: #78716c !important;
+    border: 1px solid #d6d0c8 !important;
+    border-radius: 8px !important;
+    font-size: 0.70rem !important;
+    font-weight: 600 !important;
+    padding: 3px 10px !important;
+    min-height: 0 !important;
+    height: 28px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    transition: background 0.15s, border-color 0.15s !important;
+    box-shadow: none !important;
+}
+[data-testid="stColumn"]:last-child [data-testid="stHorizontalBlock"]:first-of-type
+    [data-testid="stButton"] > button:hover {
+    background: #f0ece4 !important;
+    border-color: #a8a29e !important;
+    box-shadow: none !important;
 }
 
 /* ── Card: chat area ─────────────────────────────────────────────────────── */
@@ -308,11 +328,14 @@ st.markdown("""
     flex-shrink: 0;
     z-index: 1;
 }
+.tl-user   .tl-dot { background: #d97706; box-shadow: 0 0 0 2px #fde68a; }
+.tl-agent  .tl-dot { background: #0891b2; box-shadow: 0 0 0 2px #a5f3fc; }
 .tl-intent .tl-dot { background: #7c3aed; box-shadow: 0 0 0 2px #ddd6fe; }
 .tl-tool   .tl-dot { background: #2563eb; box-shadow: 0 0 0 2px #bfdbfe; }
 .tl-search .tl-dot { background: #16a34a; box-shadow: 0 0 0 2px #bbf7d0; }
 .tl-ok     .tl-dot { background: #64748b; box-shadow: 0 0 0 2px #e2e8f0; }
 .tl-error  .tl-dot { background: #e11d48; box-shadow: 0 0 0 2px #fecdd3; }
+.tl-llm    .tl-dot { background: #0d9488; box-shadow: 0 0 0 2px #99f6e4; }
 .tl-content { font-size: 0.74rem; line-height: 1.5; color: #1c1917; }
 .tl-label   { font-weight: 600; }
 .tl-detail  { font-size: 0.67rem; color: #64748b; font-family: monospace; word-break: break-word; }
@@ -371,45 +394,45 @@ st.markdown("""
 TOOLS: list[dict] = [
     {
         "name": "get_order_status",
-        "description": "Get shipping status and tracking for a customer order. Requires confirmation number, full name, and zip code.",
+        "description": "Get shipping status and tracking for a customer order. Requires an order reference (order ID e.g. B1015, or confirmation number e.g. CF-A7K2M), full name, and zip code.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "confirmation_number": {"type": "string", "description": "Confirmation number from the order confirmation email, e.g. CF-A7K2M"},
-                "full_name":           {"type": "string", "description": "Customer's full name as on the account"},
-                "zip_code":            {"type": "string", "description": "Customer's billing/shipping zip code"},
+                "order_reference": {"type": "string", "description": "Order ID (e.g. B1015) or confirmation number (e.g. CF-A7K2M) — whichever the customer provides"},
+                "full_name":       {"type": "string", "description": "Customer's full name as on the account"},
+                "zip_code":        {"type": "string", "description": "Customer's billing/shipping zip code"},
             },
-            "required": ["confirmation_number", "full_name", "zip_code"],
+            "required": ["order_reference", "full_name", "zip_code"],
         },
     },
     {
         "name": "initiate_refund",
-        "description": "Initiate a return and refund for an order. Only call this AFTER the customer has explicitly confirmed they want to proceed. Requires confirmation number, full name, and zip code.",
+        "description": "Initiate a return and refund for an order. Only call this AFTER the customer has explicitly confirmed they want to proceed. Requires an order reference, full name, and zip code.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "confirmation_number": {"type": "string", "description": "Confirmation number from the order confirmation email, e.g. CF-A7K2M"},
-                "full_name":           {"type": "string", "description": "Customer's full name as on the account"},
-                "zip_code":            {"type": "string", "description": "Customer's billing/shipping zip code"},
+                "order_reference": {"type": "string", "description": "Order ID (e.g. B1015) or confirmation number (e.g. CF-A7K2M) — whichever the customer provides"},
+                "full_name":       {"type": "string", "description": "Customer's full name as on the account"},
+                "zip_code":        {"type": "string", "description": "Customer's billing/shipping zip code"},
             },
-            "required": ["confirmation_number", "full_name", "zip_code"],
+            "required": ["order_reference", "full_name", "zip_code"],
         },
     },
     {
         "name": "cancel_order",
         "description": (
-            "Cancel a Processing order. Requires confirmation number, full name, and zip code to verify identity. "
+            "Cancel a Processing order. Requires an order reference, full name, and zip code to verify identity. "
             "Cannot cancel orders that have already shipped — suggest a return instead. "
             "Only call after the customer has confirmed they want to cancel."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "confirmation_number": {"type": "string", "description": "Confirmation number from the order confirmation email, e.g. CF-A7K2M"},
-                "full_name":           {"type": "string", "description": "Customer's full name as on the account"},
-                "zip_code":            {"type": "string", "description": "Customer's billing/shipping zip code"},
+                "order_reference": {"type": "string", "description": "Order ID (e.g. B1015) or confirmation number (e.g. CF-A7K2M) — whichever the customer provides"},
+                "full_name":       {"type": "string", "description": "Customer's full name as on the account"},
+                "zip_code":        {"type": "string", "description": "Customer's billing/shipping zip code"},
             },
-            "required": ["confirmation_number", "full_name", "zip_code"],
+            "required": ["order_reference", "full_name", "zip_code"],
         },
     },
     {
@@ -429,18 +452,28 @@ Scope — you handle ONLY these three categories:
 If a customer asks about ANYTHING else — booking flights, recommendations, unrelated topics, general chat — firmly but warmly decline: "I'm here specifically to help with order status, returns, and Bookly policies. For anything else, please visit bookly.com or contact our team directly." Do NOT attempt to answer out-of-scope questions even partially.
 
 Rules:
-1. Never call a tool unless the customer has explicitly requested that action in the current conversation. Do not look up orders, trigger refunds, or cancel orders unprompted. However, once the customer has stated their intent AND supplied all three required credentials, call the tool immediately — do not ask for a second confirmation.
+1. Call tools eagerly: the moment you have all three credentials (order reference, full name, zip code) AND a clear intent, call the tool immediately — no recap, no confirmation question, no "let me look that up for you" delay.
+   - If a customer provides all three credentials in a single message, infer the most logical intent (providing an order reference + name + zip with no other context = check order status) and call get_order_status right away.
+   - Never ask the customer to repeat or re-confirm information they have already provided in this conversation.
+   - Do not look up orders, trigger refunds, or cancel orders when no intent or credentials have been given.
 2. Never fabricate order details — always call get_order_status when a customer asks about an order.
 3. Credential gates — required before calling each tool:
-   • get_order_status / initiate_refund / cancel_order: confirmation number (format CF-XXXXX), full name, and zip code — all three must be collected before calling; no credentials needed for general policy questions.
-   Collect any missing credentials one at a time, then call the tool immediately once all are provided.
-4. Use search_knowledge_base for all policy questions; base answers solely on retrieved content.
+   • get_order_status / initiate_refund / cancel_order: an order reference (order ID like B1015, OR confirmation number like CF-XXXXX — accept whichever the customer provides), full name, and zip code. All three must be present before calling; no credentials needed for general policy questions.
+   If one or two credentials are missing, ask for the missing ones only (never re-ask for what was already given). Call the tool immediately once all three are in hand.
+4. For policy questions, call search_knowledge_base immediately as your FIRST action — do not say anything before calling it. Base your answer solely on the retrieved content.
 5. For refunds: first explain what will happen (amount, timeline), then WAIT for the customer to explicitly confirm in a separate reply before calling initiate_refund. Never call initiate_refund on a first request.
-6. For cancellations: collect all three credentials (confirmation number, full name, zip code). Explain that only Processing orders can be cancelled, then confirm before calling cancel_order. If the order has shipped, suggest a return instead.
-7. After successfully completing a request, ask: "Is there anything else I can help you with today?"
-8. If the customer says they are done (e.g. "no", "that's all", "goodbye", "thanks"), reply with a warm farewell tied to their last interaction — e.g. after an order status check: "Hope your [book title] arrives right on time! Enjoy the read! 📦"; after a refund: "Hope the refund goes smoothly — we look forward to seeing you again at Bookly! 📚"; after a cancellation: "No worries at all! Hope to see you back at Bookly soon!" — then end your message with exactly this token on its own line: [END_SESSION]
+6. For cancellations: collect all three credentials (order reference, full name, zip code). Explain that only Processing orders can be cancelled, then confirm before calling cancel_order. If the order has shipped, suggest a return instead.
+7. After successfully completing a request, ask: "Is there anything else I can help you with today?" — then wait for the customer's response. Never end the conversation on your own.
+8. Session end — ONLY emit [END_SESSION] when the customer is clearly ending the entire conversation, not just declining a specific action.
+   • A customer saying "No thanks" or "No" to a refund/cancellation offer is declining THAT action — respond with "No problem! Is there anything else I can help you with today?" and keep the session open.
+   • Session end is signalled by farewell language AFTER the "Is there anything else?" question — e.g. "No, that's all", "I'm good thanks", "Bye!", "All done". These close the conversation.
+   • When ending: reply with a warm, context-specific farewell (e.g. after an order status check: "Hope your [book title] arrives right on time! Enjoy the read! 📦"; after a refund: "Hope the refund goes smoothly — we look forward to seeing you again at Bookly! 📚"; after a cancellation: "No worries at all! Hope to see you back at Bookly soon!"), then place [END_SESSION] on its own line at the end.
+   • Do NOT emit [END_SESSION] for any other reason.
 
-Style: warm, concise, plain language. Resolve in as few turns as possible."""
+Style: warm, concise, conversational prose. Resolve in as few turns as possible.
+- Never use tables, bullet lists, or markdown formatting in responses.
+- Deliver order details as natural sentences — e.g. "Your copy of Sapiens is on its way with UPS (tracking: 1Z999AA…) and should arrive by March 10th."
+- Keep responses short — 2 to 4 sentences for most answers. Only include details the customer actually needs."""
 
 # ---------------------------------------------------------------------------
 # Agent
@@ -481,22 +514,39 @@ def _tool_result_detail(tool_name: str, result: dict) -> str:
     return "success"
 
 
+def _content_to_dicts(content) -> list:
+    """Convert Anthropic SDK content blocks to plain dicts for reliable serialization."""
+    result = []
+    for block in content:
+        if hasattr(block, "model_dump"):
+            result.append(block.model_dump())
+        elif isinstance(block, dict):
+            result.append(block)
+        else:
+            result.append({"type": "text", "text": str(block)})
+    return result
+
+
 def run_agent(api_messages: list, activity_log: list) -> tuple[str, list]:
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
-        activity_log.append(("error", "ANTHROPIC_API_KEY not set"))
+        activity_log.append(("error", "ANTHROPIC_API_KEY not set", {}, time.strftime("%H:%M:%S")))
         return "Configuration error: please set ANTHROPIC_API_KEY.", api_messages
 
     client = anthropic.Anthropic(api_key=api_key)
     resp = client.messages.create(
-        model="claude-haiku-4-5-20251001", max_tokens=1024,
+        model="claude-sonnet-4-6", max_tokens=1024,
         system=SYSTEM_PROMPT, tools=TOOLS, messages=api_messages,
     )
 
     def _ts() -> str:
         return time.strftime("%H:%M:%S")
 
+    _call_num = 0
+
     while resp.stop_reason == "tool_use":
+        _call_num += 1
+        activity_log.append(("llm_call", f"Claude call {_call_num} → tool_use", {}, _ts()))
         results = []
         for block in resp.content:
             if block.type != "tool_use":
@@ -520,21 +570,54 @@ def run_agent(api_messages: list, activity_log: list) -> tuple[str, list]:
             results.append({"type": "tool_result", "tool_use_id": block.id, "content": json.dumps(result)})
 
         api_messages = api_messages + [
-            {"role": "assistant", "content": resp.content},
+            {"role": "assistant", "content": _content_to_dicts(resp.content)},
             {"role": "user", "content": results},
         ]
         resp = client.messages.create(
-            model="claude-haiku-4-5-20251001", max_tokens=1024,
+            model="claude-sonnet-4-6", max_tokens=1024,
             system=SYSTEM_PROMPT, tools=TOOLS, messages=api_messages,
         )
+
+    _call_num += 1
+    activity_log.append(("llm_call", f"Claude call {_call_num} → {resp.stop_reason}", {}, _ts()))
 
     text = "".join(b.text for b in resp.content if hasattr(b, "text")).strip()
     if not text:
         text = "I'm sorry, I wasn't able to generate a response. Please try again."
     if not any(i[0] == "intent" for i in activity_log):
-        activity_log.append(("intent", "general_inquiry", {}, _ts()))
-    activity_log.append(("result", "response generated", {}, _ts()))
-    return text, api_messages + [{"role": "assistant", "content": resp.content}]
+        # No tool was called — try to detect partial intent + missing credentials
+        _last_user = next(
+            (m["content"] for m in reversed(api_messages)
+             if m["role"] == "user" and isinstance(m.get("content"), str)),
+            "",
+        )
+        _u, _a = _last_user.lower(), text.lower()
+
+        # Infer intent from user's message
+        _intent = None
+        if any(w in _u for w in ["return", "refund", "send back"]):
+            _intent = "refund_request"
+        elif any(w in _u for w in ["cancel"]):
+            _intent = "order_cancellation"
+        elif any(w in _u for w in ["order", "track", "status", "delivery", "package", "ship", "where"]):
+            _intent = "order_status"
+
+        # Detect what the agent is asking for
+        _missing = []
+        if "full name" in _a or ("name" in _a and any(w in _a for w in ["need", "require", "provide", "share"])):
+            _missing.append("full name")
+        if "zip" in _a:
+            _missing.append("zip code")
+        if any(w in _a for w in ["order number", "order id", "order reference", "confirmation number", "confirmation"]):
+            _missing.append("order reference")
+
+        if _intent and _missing:
+            activity_log.append(("partial", _intent, {"missing": _missing}, _ts()))
+        else:
+            activity_log.append(("intent", "general_inquiry", {}, _ts()))
+    preview = (text[:70] + "…") if len(text) > 70 else text
+    activity_log.append(("agent_msg", preview, {}, _ts()))
+    return text, api_messages + [{"role": "assistant", "content": _content_to_dicts(resp.content)}]
 
 
 # ---------------------------------------------------------------------------
@@ -592,7 +675,43 @@ def _render_activity(activity: list[tuple]) -> str:
         ts = item[-1] if isinstance(item[-1], str) and len(item[-1]) == 8 and item[-1].count(":") == 2 else ""
         ts_html = f'<span class="tl-ts">{ts}</span>' if ts else ""
 
-        if k == "intent":
+        if k == "user_msg":
+            label = item[1][:80] + ("…" if len(item[1]) > 80 else "")
+            items.append(
+                '<div class="tl-item tl-user">'
+                '<div class="tl-dot"></div>'
+                '<div class="tl-content">'
+                f'<div class="tl-label">&#128100;&nbsp;{html.escape(label)}{ts_html}</div>'
+                '</div></div>'
+            )
+        elif k == "agent_msg":
+            items.append(
+                '<div class="tl-item tl-agent">'
+                '<div class="tl-dot"></div>'
+                '<div class="tl-content">'
+                f'<div class="tl-label">&#129302;&nbsp;{html.escape(item[1])}{ts_html}</div>'
+                '</div></div>'
+            )
+        elif k == "llm_call":
+            items.append(
+                '<div class="tl-item tl-llm">'
+                '<div class="tl-dot"></div>'
+                '<div class="tl-content">'
+                f'<div class="tl-label">&#129302;&#8202;{html.escape(item[1])}{ts_html}</div>'
+                '</div></div>'
+            )
+        elif k == "partial":
+            missing = item[2].get("missing", []) if isinstance(item[2], dict) else []
+            missing_str = ", ".join(missing)
+            items.append(
+                '<div class="tl-item tl-intent">'
+                '<div class="tl-dot"></div>'
+                '<div class="tl-content">'
+                f'<div class="tl-label">&#127919;&nbsp;{html.escape(item[1])}{ts_html}</div>'
+                + (f'<div class="tl-detail">missing: {html.escape(missing_str)}</div>' if missing_str else '')
+                + '</div></div>'
+            )
+        elif k == "intent":
             if item[1] in seen:
                 continue
             seen.add(item[1])
@@ -677,27 +796,19 @@ st_autorefresh(interval=20_000, key="idle_refresh")
 # Layout
 # ---------------------------------------------------------------------------
 
-if st.session_state.show_activity:
-    col_main, col_activity = st.columns([5, 2], gap="medium")
-else:
-    col_main = st.columns(1)[0]
-    col_activity = None
+col_main, col_right = st.columns([5, 2], gap="medium")
 
 # ── Main white card ───────────────────────────────────────────────────────
 
 with col_main:
 
-    # 1. Logo bar with activity toggle
-    _logo_col, _toggle_col = st.columns([5, 1])
-    with _logo_col:
-        st.markdown("""
-        <div class="card-logo">
-          <div class="card-logo-text">book<span>ly</span></div>
-          <span class="card-logo-status">Amelia is online</span>
-        </div>
-        """, unsafe_allow_html=True)
-    with _toggle_col:
-        st.toggle("Activity", key="show_activity")
+    # 1. Logo bar (controls are in col_right)
+    st.markdown("""
+    <div class="card-logo">
+      <div class="card-logo-text">book<span>ly</span></div>
+      <span class="card-logo-status">Amelia is online</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     # 2. Scrollable iMessage-style conversation
     st.markdown('<div class="chat-bg">', unsafe_allow_html=True)
@@ -744,10 +855,22 @@ with col_main:
         # 5. Chat input (Enter to send)
         prompt = st.chat_input("Message Amelia…")
 
-# ── Activity panel (own white card, right column) ─────────────────────────
+# ── Right column: controls + optional activity panel ──────────────────────
 
-if col_activity is not None:
-    with col_activity:
+with col_right:
+    # Controls row — toggle and End button at top right
+    _toggle_col, _end_col = st.columns([3, 1])
+    with _toggle_col:
+        st.toggle("Activity", key="show_activity")
+    with _end_col:
+        if st.button("End Session", key="end_session_btn", use_container_width=True, type="secondary"):
+            for key in ["messages", "api_messages", "last_agent_ts",
+                        "idle_nudge_sent", "session_ended", "quick_prompt", "pending_agent"]:
+                st.session_state.pop(key, None)
+            st.rerun()
+
+    # Activity panel (shown only when toggle is on)
+    if st.session_state.show_activity:
         st.markdown(
             '<div class="activity-panel">'
             '<div class="activity-panel-title">Agent Activity</div>',
@@ -812,14 +935,29 @@ if active_prompt and not st.session_state.session_ended:
 if st.session_state.pending_agent and not st.session_state.session_ended:
     st.session_state.pending_agent = False
     with st.spinner(""):
-        activity_log: list[tuple] = []
-        response_text, new_api_messages = run_agent(
-            st.session_state.api_messages, activity_log,
+        _user_text = next(
+            (m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), ""
         )
+        activity_log: list[tuple] = [("user_msg", _user_text, {}, time.strftime("%H:%M:%S"))]
+        try:
+            response_text, new_api_messages = run_agent(
+                st.session_state.api_messages, activity_log,
+            )
+        except Exception as _exc:
+            response_text = "I'm sorry, something went wrong on my end. Please try sending your message again."
+            # Add a placeholder assistant turn so api_messages stays properly alternated.
+            # Without this, the next user submit would create two consecutive user messages
+            # which the Anthropic API rejects, causing a permanent failure loop.
+            new_api_messages = st.session_state.api_messages + [
+                {"role": "assistant", "content": response_text}
+            ]
+            activity_log.append(("error", str(_exc), {}, time.strftime("%H:%M:%S")))
 
     # Detect session-end signal from Amelia
     if _END_TOKEN in response_text:
         response_text = response_text.replace(_END_TOKEN, "").strip()
+        if not response_text:
+            response_text = "Thanks for reaching out to Bookly! Have a great day! 📚"
         st.session_state.session_ended = True
 
     st.session_state.messages.append({"role": "assistant", "content": response_text, "activity": activity_log})

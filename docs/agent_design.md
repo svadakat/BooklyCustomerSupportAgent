@@ -63,9 +63,9 @@ The order is for *Sapiens* (Delivered, $19.99) with no existing return — eligi
 
 ## Executive Summary
 
-**Bookly Support Agent** is a multi-turn AI customer support agent built on Claude Haiku, served through a Streamlit web UI. The agent — named Amelia — handles three task categories exclusively: order status lookups, return/refund initiation, and policy questions. All other topics are politely declined.
+**Bookly Support Agent** is a multi-turn AI customer support agent built on Claude Sonnet, served through a Streamlit web UI. The agent — named Amelia — handles three task categories exclusively: order status lookups, return/refund initiation, and policy questions. All other topics are politely declined.
 
-**How it works end-to-end.** The customer types a message (or clicks a quick-reply chip). The Streamlit app appends it to the API message history and calls Claude Haiku with a structured system prompt, the full conversation, and four tool schemas. Claude reasons over the history, decides whether to answer directly, ask for missing credentials, or call a tool — and returns either a `tool_use` response or a final text answer. The agentic loop runs until `stop_reason != "tool_use"`. Every step is timestamped and recorded in a visual activity timeline visible alongside the chat.
+**How it works end-to-end.** The customer types a message (or clicks a quick-reply chip). The Streamlit app appends it to the API message history and calls Claude Sonnet with a structured system prompt, the full conversation, and four tool schemas. Claude reasons over the history, decides whether to answer directly, ask for missing credentials, or call a tool — and returns either a `tool_use` response or a final text answer. The agentic loop runs until `stop_reason != "tool_use"`. Every step is timestamped and recorded in a visual activity timeline visible alongside the chat.
 
 **Credential gate.** Every order-touching action (status check, refund, cancellation) requires the customer to supply their **confirmation number** (format `CF-XXXXX`), **full name**, and **zip code** before any tool is called. These are verified against the database inside the tool function — not just checked by the prompt — so the gate is enforced at the code layer, not just the LLM layer. The confirmation number is used as the primary order lookup key; order IDs are internal only.
 
@@ -95,7 +95,7 @@ The order is for *Sapiens* (Delivered, $19.99) with no existing return — eligi
               │
               ▼
 ┌──────────────────────────────────────────────────────────────┐
-│           LLM Agent  (claude-haiku-4-5-20251001)             │
+│           LLM Agent  (claude-sonnet-4-6)             │
 │                                                               │
 │  System prompt + full conversation history + tool schemas     │
 │  Agentic loop: call tools until stop_reason ≠ tool_use        │
@@ -141,7 +141,7 @@ The order is for *Sapiens* (Delivered, $19.99) with no existing return — eligi
 
 ### 2.1  Claude as the reasoning core
 
-Rather than hard-coding an intent classifier, the system delegates all reasoning to Claude Haiku. Claude reads the conversation history, decides which tool(s) to call (if any), and generates the final response. This approach:
+Rather than hard-coding an intent classifier, the system delegates all reasoning to Claude Sonnet. Claude reads the conversation history, decides which tool(s) to call (if any), and generates the final response. This approach:
 
 - handles novel phrasings gracefully without re-training a classifier
 - naturally multi-hops (e.g., checks order status *then* explains return eligibility in one turn)
